@@ -86,6 +86,13 @@
 			bg2.y = 0;
 		app.stage.addChild(bg1,bg2);
 
+		//创建分数面板
+		window.scoreText = new PIXI.Text('你的分数：'+score,{fontFamily : 'Arial', fontSize: 24, fill : 0xff1010, align : 'center'});
+		scoreText.x = 600;
+		scoreText.y = 10;
+		app.stage.addChild(scoreText);
+
+
 	}
 	//绘制操作按钮
 	function drawControl(){
@@ -133,6 +140,7 @@
 			car.height = 100;
 			car.x = 120 + jumpBtn.width;
 			car.y = AppH -30 - car.height - jumpBtn.height;
+			car.tint = Math.random() * 0xFFFFFF;
 			win.levelHeight = car.y; 
 		app.stage.addChild(car);
 	}
@@ -152,13 +160,14 @@
 	}
 	//发射炸弹
 	function drawBomb(){
-		if(bombs.length > 1){
+		if(bombs.length >= 5){
 				return;
 			}
 		if(win.status){
 				var bomb = PIXI.Sprite.fromImage('images/bomb.png');
 					bomb.x = car.x + car.width;
-					bomb.y = car.y + car.height/2;
+					bomb.y = car.y + car.height/2 - bomb.height;
+					bomb.tint = Math.random() * 0xFFFFFF;
 				app.stage.addChild(bomb);
 				bombs.push(bomb);
 			}
@@ -201,6 +210,8 @@
 				plant.height = 100;
 				plant.x = AppW;
 				plant.y = win.levelHeight;
+				plant.tint = Math.random() * 0xFFFFFF;
+				plant.name = 'plant';
 			app.stage.addChild(plant);
 			blocks.push(plant);
 		}else if(s<8){
@@ -210,6 +221,8 @@
 				pig.height = 50;
 				pig.x = AppW + 50;
 				pig.y = win.levelHeight - car.height;
+				pig.tint = Math.random() * 0xFFFFFF;
+				pig.name = 'pig';
 			app.stage.addChild(pig);
 			blocks.push(pig);
 		}else{
@@ -219,6 +232,7 @@
 				plane.height = 100;
 				plane.x = AppW + 50;
 				plane.y = 100;
+				plane.name = 'plane';
 			app.stage.addChild(plane);
 			blocks.push(plane);
 
@@ -239,13 +253,14 @@
 			if(bg2.x <= -AppW){
 				bg2.x = bg1.x + AppW;
 			}
+
+			//跳跃动画,包含二次跳跃
 			if(win.jump2 == 2){
 				win.gravity = 10;
 				win.direction = 'top';
 				win.jump2 = 0;
 				win.isJump2ing = true;
 			}
-			//跳跃动画
 			if(win.direction == 'top'){
 				if(win.gravity == 0){
 					win.direction = 'bottom';
@@ -254,7 +269,6 @@
 				}
 				win.gravity -= 0.5;
 				car.y = car.y - win.gravity * 1.5;
-				
 			}else if(win.direction == 'bottom'){
 				if(car.y > win.levelHeight){
 					win.direction = 'level';
@@ -271,16 +285,25 @@
 			var len = bombs.length;
 			for(var i =0 ;i < len; i++){
 				bombs[i].x += win.bombSpeed;
-				if(bombs[i].x > AppW + bombs[i].width){
+				if(bombs[i].x > AppW){
 					bombs[i].destroy();
 					bombs.splice(i,1);
 					i--;
 					len--;
+					return ;
 				}
 
 				var blockLen = blocks.length;
 				for(var j =0 ;j <blockLen;j++){
 					if(checkCrash(blocks[j],bombs[i])){
+						if(blocks[j].name == 'plane'){
+							score+=100;
+						}else if(blocks[j].name == 'plant'){
+							score+=2;
+						}else{
+							score+=10;
+						}
+
 						blocks[j].destroy();
 						blocks.splice(j,1);
 						j--;
@@ -290,6 +313,7 @@
 						bombs.splice(i,1);
 						i--;
 						len--;
+
 						break;
 					}else if(blocks[j].x < 0 ){
 						blocks[j].destroy();
@@ -309,6 +333,7 @@
 					prizes.splice(i,1);
 					i--;
 					len--;
+					score+=1;
 				}else if(prizes[i].x < 0 ){
 					prizes[i].destroy();
 					prizes.splice(i,1);
@@ -335,6 +360,7 @@
 					len--;
 				}
 			}
+			scoreText.text = "你的分数："+score;
 		})
 	}
 
