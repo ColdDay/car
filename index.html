@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+	<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=0">
+	<script src="js/pixi.min.js"></script>
+	<script src="js/zepto.js"></script>
+	<style type="text/css">
+		canvas{
+			width: 800px;
+			height: 600px;
+			margin: 0 auto;
+			border:1px solid gray;
+			display: block;
+		}
+	</style>
+	<script type="text/javascript">
+		!function(n){var e=n.document,t=e.documentElement,i=720,d=i/100,o="orientationchange"in n?"orientationchange":"resize",a=function(){var n=t.clientWidth||320;n>720&&(n=720),t.style.fontSize=n/d+"px"};e.addEventListener&&(n.addEventListener(o,a,!1),e.addEventListener("DOMContentLoaded",a,!1))}(window);
+	</script>
+</head>
+<body>
+<script type="text/javascript">
+	var score = 0;
+	var app = new PIXI.Application();
+	document.body.appendChild(app.view);
+	app.stage.interactive = true;
+	var AppW = app.renderer.width;
+	var AppH = app.renderer.height;
+
+	var bgPos = {
+		x:0
+	}
+	var blocks = [];	//障碍物，撞到gameover
+	var prizes = [];	//金币奖励
+	var bombs = [];	//导弹
+	var win = {
+		status:0,	//游戏状态。0表示未开始
+		speed:0,
+		maxSpeed:6,
+		jumpH:0,
+		maxJumpH:100,
+		direction:'level',
+		gravity:10,
+		bombSpeed:5,
+		jump2:0,
+		isJump2ing:false,
+		levelHeight:0
+	}
+	//游戏结束重置
+	function reset(){
+		blocks = [];
+		prizes = [];
+		bombs = [];
+		win = {
+			status:0,	
+			speed:0,
+			maxSpeed:6,
+			jumpH:0,
+			maxJumpH:100,
+			direction:'level',
+			gravity:10,
+			bombSpeed:5,
+			jump2:0,
+			isJump2ing:false,
+			levelHeight:0
+		}
+	};
+
+	//鸭子
+	initPage();
+	function initPage(){
+		drawBackground();
+		drawControl();
+		onfps();
+	}
+	function drawBackground(){
+		window.bg1 = PIXI.Sprite.fromImage('images/timg.jpg');
+			bg1.width = AppW;
+			bg1.height = AppH;
+			bg1.x = 0 ;
+			bg1.y = 0;
+		window.bg2= PIXI.Sprite.fromImage('images/timg.jpg');
+			bg2.width = AppW;
+			bg2.height = AppH;
+			bg2.x = AppW ;
+			bg2.y = 0;
+		app.stage.addChild(bg1,bg2);
+
+	}
+	//绘制操作按钮
+	function drawControl(){
+
+		//开始按钮
+		window.startBtn = new PIXI.Text('开始,空格跳跃，回车发射导弹',{
+				fontFamily : 'Arial', 
+				fontSize: 24, 
+				fill : 0xff1010, 
+				fontWeight:900,
+				align : 'center'});
+			startBtn.x = AppW/2 - startBtn.width/2 ;
+			startBtn.y = AppH/2 - startBtn.height;
+		
+		startBtn.interactive = true;
+		startBtn.on('pointerdown',start)
+		app.stage.addChild(startBtn);
+		
+		var jumpBtn = PIXI.Sprite.fromImage('images/jump-control.png');
+			jumpBtn.width = 100;
+			jumpBtn.height = 100;
+			jumpBtn.x = 30 ;
+			jumpBtn.y = AppH -30 - jumpBtn.height;
+		app.stage.addChild(jumpBtn);
+		jumpBtn.interactive = true;
+		jumpBtn.on('pointerdown',function(){
+			jump();
+		});
+
+		//绘制导弹按钮
+		var bombBtn = PIXI.Sprite.fromImage('images/bomb-control.png');
+			bombBtn.width = 100;
+			bombBtn.height = 100;
+			bombBtn.x = AppW - 30 - bombBtn.width;
+			bombBtn.y = AppH -30 - bombBtn.height;
+		app.stage.addChild(bombBtn);
+		bombBtn.interactive = true;
+		bombBtn.on('pointerdown',function(){			
+			drawBomb();
+		});
+
+		//绘制自行车
+		window.car = PIXI.Sprite.fromImage('images/dirt-bike.png');
+			car.width = 100;
+			car.height = 100;
+			car.x = 120 + jumpBtn.width;
+			car.y = AppH -30 - car.height - jumpBtn.height;
+			win.levelHeight = car.y; 
+		app.stage.addChild(car);
+	}
+	function start(){
+			win.status = 1;
+			startBtn.destroy();
+			drawCoin();
+			drawBlocks();
+
+		}
+	//跳跃
+	function jump(){
+		if(win.status && win.jump2 < 2 && !win.isJump2ing){
+				win.jump2+=1;
+				win.direction = 'top';
+			}		
+	}
+	//发射炸弹
+	function drawBomb(){
+		if(bombs.length > 1){
+				return;
+			}
+		if(win.status){
+				var bomb = PIXI.Sprite.fromImage('images/bomb.png');
+					bomb.x = car.x + car.width;
+					bomb.y = car.y + car.height/2;
+				app.stage.addChild(bomb);
+				bombs.push(bomb);
+			}
+	}
+	//绘制金币
+	function drawCoin(){
+		if(!win.status){
+			return;
+		}
+		var s = Math.random().toFixed(1)*10;
+		window.setTimeout(function(){
+			drawCoin();
+		},s*500);
+		var len = Math.random()*10;
+		len = len.toFixed(0);
+		for(var i =0 ;i< len;i++){
+			var coin = PIXI.Sprite.fromImage('images/coin.png');
+				coin.width = 30;
+				coin.height = 30;
+				coin.x = AppW + 50*i;
+				coin.y = win.levelHeight  - Math.random()*150;
+			app.stage.addChild(coin);
+			prizes.push(coin);
+		}
+	}
+	//绘制障碍物
+	function drawBlocks(){
+		if(!win.status){
+			return;
+		}
+		var s = Math.random().toFixed(1)*10;   
+		window.setTimeout(function(){
+			drawBlocks();
+		},s*500);
+
+		if(s < 5){
+			//绘制仙人掌
+			var plant = PIXI.Sprite.fromImage('images/plant.png');
+				plant.width = 50;
+				plant.height = 100;
+				plant.x = AppW;
+				plant.y = win.levelHeight;
+			app.stage.addChild(plant);
+			blocks.push(plant);
+		}else if(s<8){
+			//绘制猪头
+			var pig = PIXI.Sprite.fromImage('images/pig.png');
+				pig.width = 50;
+				pig.height = 50;
+				pig.x = AppW + 50;
+				pig.y = win.levelHeight - car.height;
+			app.stage.addChild(pig);
+			blocks.push(pig);
+		}else{
+			//绘制f飞机
+			var plane = PIXI.Sprite.fromImage('images/plane.png');
+				plane.width = 100;
+				plane.height = 100;
+				plane.x = AppW + 50;
+				plane.y = 100;
+			app.stage.addChild(plane);
+			blocks.push(plane);
+
+		}
+	}
+
+	function onfps(){
+		app.ticker.add(function(){
+			if(win.status && win.speed <= win.maxSpeed){
+				win.speed+=0.05;
+			}
+
+			bg1.x = bg1.x - win.speed;
+			bg2.x = bg2.x - win.speed;
+			if(bg1.x <= -AppW){
+				bg1.x = bg2.x + AppW;
+			}
+			if(bg2.x <= -AppW){
+				bg2.x = bg1.x + AppW;
+			}
+			if(win.jump2 == 2){
+				win.gravity = 10;
+				win.direction = 'top';
+				win.jump2 = 0;
+				win.isJump2ing = true;
+			}
+			//跳跃动画
+			if(win.direction == 'top'){
+				if(win.gravity == 0){
+					win.direction = 'bottom';
+					win.gravity = 0;
+					return;
+				}
+				win.gravity -= 0.5;
+				car.y = car.y - win.gravity * 1.5;
+				
+			}else if(win.direction == 'bottom'){
+				if(car.y > win.levelHeight){
+					win.direction = 'level';
+					win.jump2 = 0;
+					win.gravity = 10;
+					win.isJump2ing = false;
+					return;
+				}
+				car.y = car.y + win.gravity * 1.5;
+				win.gravity += 0.5;
+			}
+
+			//处理炸弹
+			var len = bombs.length;
+			for(var i =0 ;i < len; i++){
+				bombs[i].x += win.bombSpeed;
+				if(bombs[i].x > AppW + bombs[i].width){
+					bombs[i].destroy();
+					bombs.splice(i,1);
+					i--;
+					len--;
+				}
+
+				var blockLen = blocks.length;
+				for(var j =0 ;j <blockLen;j++){
+					if(checkCrash(blocks[j],bombs[i])){
+						blocks[j].destroy();
+						blocks.splice(j,1);
+						j--;
+						blockLen--;
+
+						bombs[i].destroy();
+						bombs.splice(i,1);
+						i--;
+						len--;
+						break;
+					}else if(blocks[j].x < 0 ){
+						blocks[j].destroy();
+						blocks.splice(j,1);
+						j--;
+						blockLen--;
+					}
+				}
+
+			}
+			//吃金币
+			var len = prizes.length;
+			for(var i =0 ;i < len; i++){
+				prizes[i].x -= win.speed;
+				if(checkCrash(prizes[i],car)){
+					prizes[i].destroy();
+					prizes.splice(i,1);
+					i--;
+					len--;
+				}else if(prizes[i].x < 0 ){
+					prizes[i].destroy();
+					prizes.splice(i,1);
+					i--;
+					len--;
+				}
+			}
+
+			//处理障碍物
+			var len = blocks.length;
+			for(var i =0 ;i < len; i++){
+				blocks[i].x -= win.speed*2;
+				if(checkCrash(blocks[i],car)){
+					
+					setTimeout(function(){
+						car.destroy();
+						app.stop();
+					},10)
+					reset();
+				}else if(blocks[i].x < 0 ){
+					blocks[i].destroy();
+					blocks.splice(i,1);
+					i--;
+					len--;
+				}
+			}
+		})
+	}
+
+
+
+	$(document).keydown(function(event){ 
+		if(!win.status){
+			start();
+		}
+		if(event.keyCode == 32){ 
+			jump();
+		}else if (event.keyCode == 13){ 
+			drawBomb();
+		}
+	});
+	function goDie(type,boss,you){
+		//创建分数面板
+		var text = '你歇菜了'
+		if(boss.name == 'lobster'){
+			text = '螃蟹有毒'
+		}
+		if(type == 'win'){
+			text = '少年，不要沉迷于游戏'
+		}
+		window.goDieText = new PIXI.Text(text,{fontFamily : 'Arial', fontSize: 48, fill : 0xff1010});
+		goDieText.x = 400;
+		goDieText.y = 200;
+		goDieText.anchor.set(0.5);
+		app.stage.addChild(goDieText);
+		//you.destroy();
+		setTimeout(function(){
+			app.stop();
+			window.status = 'over';
+		},100);
+		
+	}
+	function levelTop(obj){
+		console.log('升级');
+		if(obj.level >= 3){
+			window.showBoss = true;
+			return;
+		}
+		obj.level +=1;
+		obj.scale.set(obj.level,obj.level);
+		opt.speed = opt.speed*1.5;
+	}
+	//检测碰撞
+	function checkCrash (obj1,obj2){
+		
+		var bounds = obj2.getBounds();
+		var x1 = obj1.x;
+		var x2 = obj1.x + obj1.width;
+		var y1 = obj1.y;
+		var y2 = obj1.y + obj1.height;
+		
+		var bounds2 = obj1.getBounds();
+		var x12 = obj2.x;
+		var x22 = obj2.x + obj2.width;
+		var y12 = obj2.y;
+		var y22 = obj2.y + obj2.height;
+
+		if(bounds.contains(x1,y1) || bounds.contains(x2,y1) || bounds.contains(x1,y2) || bounds.contains(x2,y2)){
+			return true;
+		}else if(bounds2.contains(x12,y12) || bounds2.contains(x22,y12) || bounds2.contains(x12,y22) || bounds2.contains(x22,y22)){
+			return true;
+		} else{
+			return false;
+		}
+}
+
+
+
+
+</script>
+</body>
+</html>
